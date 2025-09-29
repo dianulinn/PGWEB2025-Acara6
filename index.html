@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Peta Flores Timur</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <!-- Leaflet Search CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-search@3.0.9/dist/leaflet-search.min.css" />
+
+    <style>
+        body { display: flex; flex-direction: column; height: 100vh; margin: 0; }
+        #map { flex-grow: 1; width: 100%; }
+        .leaflet-control-layers-expanded { min-width: 230px; }
+        .legend-in-control { font-size: 0.9em; margin-left: 25px; margin-top: 6px; margin-bottom: 6px; }
+        .legend-in-control .legend-item { display: flex; align-items: center; margin-bottom: 4px; }
+        .legend-in-control i { width: 18px; height: 18px; margin-right: 8px; opacity: 0.8; flex-shrink: 0; }
+        .legend-in-control .legend-line { display: inline-block; width: 20px; margin-right: 8px; vertical-align: middle; opacity: 0.8; border-bottom-style: solid; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #FFE4E1;">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Flores Timur</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#aboutModal">Tentang</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div id="map"></div>
+
+    <!-- Feature Info Modal -->
+    <div class="modal fade" id="featureModal" tabindex="-1" aria-labelledby="featureModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title" id="featureModalLabel">Informasi Kecamatan</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+          <div class="modal-body" id="featureModalBody"></div>
+          <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- About Modal -->
+    <div class="modal fade" id="aboutModal" tabindex="-1" aria-labelledby="aboutModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="aboutModalLabel">Tentang Peta Ini</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p>Peta Web Interaktif wilayah Flores Timur.</p>
+            <p>Dibuat oleh:</p>
+            <p>Nama: Dian Ulin Nuha</p>
+            <p>NIM: 24/540088/SV/24771</p>
+            <p>Kelas: B</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Search JS -->
+    <script src="https://unpkg.com/leaflet-search@3.0.9/dist/leaflet-search.min.js"></script>
+
+    <!-- Main Application Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var map = L.map('map').setView([-8.45, 122.98], 10);
+
+            map.createPane('batasPane'); map.getPane('batasPane').style.zIndex = 410;
+            map.createPane('sungaiPane'); map.getPane('sungaiPane').style.zIndex = 415;
+            map.createPane('jalanPane'); map.getPane('jalanPane').style.zIndex = 420;
+            map.createPane('toponimiPane'); map.getPane('toponimiPane').style.zIndex = 430;
+
+            var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+            var esriSatelit = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' });
+
+            var batasKecamatanLayer = L.layerGroup().addTo(map);
+            var sungaiLayer = L.layerGroup().addTo(map);
+            var jalanLayer = L.layerGroup().addTo(map);
+            var toponimiLayer = L.layerGroup().addTo(map);
+
+            function getColor(p) { return p > 30000 ? '#8c510a' : p > 15000 ? '#bf812d' : '#dfc27d'; }
+            function style(feature) { return { fillColor: getColor(feature.properties.Penduduk), weight: 2, opacity: 1, color: 'white', dashArray: '3', fillOpacity: 0.7 }; }
+            function getJalanWeight(namaUnsur) { switch (namaUnsur) { case 'Jalan Propinsi': return 4; case 'Jalan Kabupaten': return 2.5; default: return 1; } }
+            function styleJalan(feature) { return { color: 'red', weight: getJalanWeight(feature.properties.NAMA_UNSUR) }; }
+
+            var featureModal = new bootstrap.Modal(document.getElementById('featureModal'), {});
+
+            fetch('Data/Batas_Kecamatan.geojson')
+                .then(function(response) { return response.json(); })
+                .then(function(data) {
+                    L.geoJSON(data, {
+                        style: style, 
+                        pane: 'batasPane',
+                        onEachFeature: function (feature, layer) {
+                            if (feature.properties && feature.properties.WADMKC) { layer.bindTooltip(feature.properties.WADMKC, { sticky: true }); }
+                            layer.on('click', function (e) {
+                                var props = e.target.feature.properties;
+                                if (props) {
+                                    document.getElementById('featureModalLabel').innerHTML = 'Informasi: ' + props.WADMKC;
+                                    document.getElementById('featureModalBody').innerHTML = '<p><strong>Kecamatan:</strong> ' + props.WADMKC + '</p>' + '<p><strong>Penduduk:</strong> <i class="bi bi-people-fill"></i> ' + props.Penduduk + '</p>';
+                                    featureModal.show();
+                                }
+                            });
+                        }
+                    }).addTo(batasKecamatanLayer);
+
+                    var searchControl = new L.Control.Search({
+                        layer: batasKecamatanLayer,
+                        propertyName: 'WADMKC',
+                        marker: false,
+                        initial: false,
+                        textPlaceholder: 'Cari Kecamatan...',
+                        zoom: 13
+                    });
+                    map.addControl(searchControl);
+                });
+
+            fetch('Data/Sungai.geojson').then(r => r.json()).then(d => { L.geoJSON(d, { style: { color: '#0000FF', weight: 1.5 }, pane: 'sungaiPane' }).addTo(sungaiLayer); });
+            fetch('Data/Jalan.geojson').then(r => r.json()).then(d => { L.geoJSON(d, { style: styleJalan, pane: 'jalanPane' }).addTo(jalanLayer); });
+            fetch('Data/Toponimi.geojson').then(r => r.json()).then(d => { L.geoJSON(d, { onEachFeature: (f, l) => { if (f.properties && f.properties.TOPONIMI) { l.bindTooltip(f.properties.TOPONIMI); } }, pane: 'toponimiPane' }).addTo(toponimiLayer); });
+
+            function getPendudukLegendHtml() { var g = [0, 15000, 30000]; var h = '<div class="legend-in-control"><strong>Penduduk</strong>'; for (var i=0; i<g.length; i++) { h += '<div class="legend-item"><i style="background:' + getColor(g[i] + 1) + '"></i> <span>' + g[i] + (g[i+1] ? '&ndash;' + g[i+1] : '+') + '</span></div>'; } return h + '</div>'; }
+            function getJalanLegendHtml() { var t = {'Jalan Propinsi': 4, 'Jalan Kabupaten': 2.5, 'Jalan Lain': 1}; var h = '<div class="legend-in-control"><strong>Jenis Jalan</strong>'; for (var type in t) { var w = t[type]; h += '<div class="legend-item"><span class="legend-line" style="border-color: red; border-bottom-width: ' + w + 'px;"></span> <span>' + type + '</span></div>'; } return h + '</div>'; }
+            function getSungaiLegendHtml() { return '<div class="legend-in-control"><div class="legend-item"><span class="legend-line" style="border-color: blue; border-bottom-width: 1.5px;"></span> <span>Sungai</span></div></div>'; }
+
+            var baseMaps = { "OpenStreetMap": osm, "Esri Satelit": esriSatelit };
+            var overlayMaps = { [ `Batas Kecamatan${getPendudukLegendHtml()}` ]: batasKecamatanLayer, [ `Sungai${getSungaiLegendHtml()}` ]: sungaiLayer, [ `Jalan${getJalanLegendHtml()}` ]: jalanLayer, "Toponimi": toponimiLayer };
+
+            L.control.layers(baseMaps, overlayMaps).addTo(map);
+        });
+    </script>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
